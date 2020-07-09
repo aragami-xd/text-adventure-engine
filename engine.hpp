@@ -2,7 +2,7 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
-#include <unordered_map>
+#include <functional>
 
 /**
  * handling exception
@@ -20,34 +20,56 @@ public:
 namespace textengine
 {
 	/**
-	 * @class decision can be made at each dialog of the game tree
+	 * @class decisions can be made at each dialog of the game tree
 	 */
 	class Decision
 	{
 	private:
-		std::string link_;	  // link to another dialog of the tree or another tree
-		std::string message_; // message to be displayed
-		bool enabled_;		  // either the option is enabled
-		int score_;			  // how many scores the decision worth
+		const std::string id_; // id of the decision
+		std::string message_;  // message to be displayed
+		std::string link_;	   // link to another dialog of the tree or another tree
+		bool enabled_;		   // enabled status
+		int score_;			   // how much that decision worth
 
 	public:
 		/**
 		 * construct a choice
-		 * @param _link link to another dialog of the tree or another tree
-		 * @param _message the message for that choice
+		 * @param _id id of the decision
+		 * @param _message message to be displayed
+		 * @param _link link to another dialog of the tree or another tree, default = null (no link)
+		 * @param _enabled enabled status, default = true
+		 * @param _score how much that decision worth, default = 0
 		 */
-		Decision(const std::string &_link, const std::string &_message, bool _enabled = true)
-			: link_(_link), message_(_message), enabled_(_enabled)
+		Decision(const std::string &_id, const std::string &_message, const std::string &_link = "", bool _enabled = true, int _score = 0)
+			: id_(_id), message_(_message), link_(_link), enabled_(_enabled), score_(_score)
 		{
 		}
 
-		inline std::string &link() { return link_; }
-		inline std::string &message() { return message_; }
+		/** get the decision id */
+		inline const std::string &id() const { return id_; }
 
-		inline bool enabled(bool _enable) { return enabled_ = _enable; }
-		inline bool isEnabled() { return enabled_; }
+		/** set the decision message */
+		inline void message(const std::string &_message) { message_ = _message; }
 
-		inline int score(int _score) { return score_ = _score; }
+		/** get the decision message */
+		inline std::string message() { return message_; }
+
+		/** set the decision link */
+		inline void link(const std::string &_link) { link_ = _link; }
+
+		/** get the decision link */
+		inline std::string link() { return link_; }
+
+		/** set the enabled status */
+		inline void enabled(bool _enable) { enabled_ = _enable; }
+
+		/** get the enabled status */
+		inline bool enabled() { return enabled_; }
+
+		/** set the score (how much the decision worth) */
+		inline void score(int _score) { score_ = _score; }
+
+		/** get the score (how much the decision worth) */
 		inline int score() { return score_; }
 	};
 
@@ -57,32 +79,66 @@ namespace textengine
 	class Dialog
 	{
 	private:
-		std::vector<Decision> dialogs_; // choices can be made at the node
-		std::string link_;				// link to another node
-		std::string message_;			// message that the node contains
+		std::vector<Decision> decisions_; // choices can be made at the diaglog
+		const std::string id_;			  // id of the dialog
+		std::string message_;			  // message to be displayed
+		std::string link_;				  // link to another dialog or another tree
 	public:
-		Dialog(const std::string &_link, const std::string &_message)
-			: link_(_link), message_(_message)
+		/**
+		 * create a new dialog
+		 * @param _id id of the dialog
+		 * @param _message message to be displayed
+		 * @param _link link to another dialog or another tree, default = null (no link)
+		 */
+		Dialog(const std::string &_id, const std::string &_message, const std::string &_link = "")
+			: message_(_message), link_(_link)
 		{
 		}
 
-		inline std::string &link() { return link_; }
-		inline std::string &message() { return message_; }
+		/** get the dialog id */
+		inline const std::string &id() const { return _id; }
+
+		/** set the dialog message */
+		inline void message(const std::string &_message) { message_ = _message; }
+
+		/** get the dialog message */
+		inline std::string message() { return message_; }
+
+		/** set the dialog link, the engine will ignore this if te dialog contains different choices */
+		inline void link(const std::string &_link) { link_ = _link; }
+
+		/** get the dialog link */
+		inline std::string link() { return link_; }
 
 		/**
 		 * insert new decision to the dialog node
-		 * @param _choice_link link for the decision
-		 * @param _choice_message message for the decision
+		 * @param _decision_link link for the decision
+		 * @param _decision_message message for the decision
 		 */
-		inline void insert(const std::string &_choice_link, const std::string &_choice_message)
+		inline Decision decision(const std::string &_decision_link, const std::string &_decision_message)
 		{
-			dialogs_.push_back(Decision(_choice_link, _choice_message));
+			decisions_.push_back(Decision(_decision_link, _decision_message));
+			return decisions_.back();
 		}
 
 		/**
 		 * get a decision with a specific link
+		 * @param _decision_link link for the decision
+		 * @return the first decision with that link
 		 */
-		// inline Decision
+		Decision decision(const std::string &_decision_link)
+		{
+			// loop through the vector
+			for (unsigned int i = 0; i < decisions_.size(); i++)
+				if (decisions_[i].link() == _decision_link)
+					return decisions_[i];
+
+			// throw exception if no decisions can be found
+			throw exception("cannot find the decision with the link: " + _decision_link);
+		}
+
+		/** get the decision vector */
+		inline std::vector<Decision> allDecisions() { return decisions_; }
 	};
 
 	/**
@@ -92,14 +148,9 @@ namespace textengine
 	{
 	private:
 		int score_;
-		std::unordered_map<std::string, Dialog> tree_;
 
 	public:
-		Tree() : score_(0)
-		{
-		}
-
-		bool insert()
+		Tree(int _score = 0) : score_(_score)
 		{
 		}
 	};
@@ -112,10 +163,12 @@ namespace textengine
 	private:
 		static Tree &parseDialog(Tree &tree, std::string &line, std::fstream &file)
 		{
+			return tree;
 		}
 
 		static Tree &parseDecision(Tree &tree, std::string &line, std::fstream &file)
 		{
+			return tree;
 		}
 
 	public:
@@ -139,6 +192,8 @@ namespace textengine
 				else
 					throw exception("unknown parsing error");
 			}
+
+			return tree;
 		}
 	};
 
@@ -154,6 +209,7 @@ namespace textengine
 
 		bool run()
 		{
+			return true;
 		}
 	};
 } // namespace textengine
