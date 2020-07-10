@@ -96,7 +96,7 @@ namespace textengine
 		}
 
 		/** get the dialog id */
-		inline const std::string &id() const { return _id; }
+		inline const std::string &id() const { return id_; }
 
 		/** set the dialog message */
 		inline void message(const std::string &_message) { message_ = _message; }
@@ -148,9 +148,16 @@ namespace textengine
 	{
 	private:
 		int score_;
-
+		const std::string link_;
+		const std::string id_;
 	public:
-		Tree(int _score = 0) : score_(_score)
+		/**
+		 * construct a game tree
+		 * @param _link link to the first dialog in the tree
+		 * @param _initial_score the starting score of the tree
+		 */
+		Tree(const std::string &_link, int _initial_score = 0)
+			: link_(_link), score_(_initial_score)
 		{
 		}
 	};
@@ -161,32 +168,32 @@ namespace textengine
 	class Parser
 	{
 	private:
-		static Tree &parseDialog(Tree &tree, std::string &line, std::fstream &file)
+		static Dialog parseDialog(Tree &tree, std::string &line, std::fstream &file)
 		{
-			return tree;
 		}
 
-		static Tree &parseDecision(Tree &tree, std::string &line, std::fstream &file)
+		static Dialog parseDecision(Tree &tree, std::string &line, std::fstream &file)
 		{
-			return tree;
 		}
 
 	public:
 		static Tree create(std::fstream &_file)
 		{
-			std::string line; // line to be parsed
-			Tree tree;		  // game tree
+			std::string line;
+
+			getline(_file, line); // parse the first line, contain the link to the first dialog
+			Tree tree(line);
 
 			// parse the entire file, or until an error is found
 			while (getline(_file, line))
 			{
 				// parse a node
 				if (line[0] == '-' && line[1] == ' ')
-					tree = parseDialog(tree, line, _file);
+					parseDialog(tree, line, _file);
 
 				// parse a choice
 				else if (line[0] == '+' && line[1] == ' ')
-					tree = parseDecision(tree, line, _file);
+					parseDecision(tree, line, _file);
 
 				// else, return false
 				else
@@ -202,14 +209,24 @@ namespace textengine
 	 */
 	class Engine
 	{
+	
 	public:
 		Engine(const std::vector<std::string> &files)
 		{
+			std::vector<Tree> gameTrees;
+			
+			for (int i = 0; i < files.size(); i++)
+			{
+
+			}
 		}
 
 		bool run()
 		{
-			return true;
+			while (1)
+			{
+
+			}
 		}
 	};
 } // namespace textengine
