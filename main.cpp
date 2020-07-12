@@ -2,8 +2,7 @@
 
 int main()
 {
-	std::string sentence1 = "parse $[this]            sentence with tree link $T[tree] and incomplete link $ddd and $a[]";
-	// std::string sentence1 = "parse $[this] sentence with tree link $T[tree] and incomplete link $ddd and $a[] and exception dialog link $d[dialog]";
+	std::string sentence1 = "parse $[this]     sentence   with tree link $T[tree] and \n     incomplete link $ddd and $a[] and escaped dialog link $$d[dialog]";
 	std::string::const_iterator it = sentence1.begin();
 	
 	textengine::configure config;

@@ -362,6 +362,9 @@ namespace textengine
 	public:
 		static Tree currTree;
 
+		/**
+		 * @class parsing token
+		 */
 		struct Token
 		{
 			std::string text = "";
@@ -444,10 +447,15 @@ namespace textengine
 							curr.text.append(std::string({'$', linkType, *it}));
 					}
 
+					// if 2 `$` are found, escape the phrase
+					else if (*it == '$')
+						curr.text.push_back('$');
+
 					// if no marker is completed, restore the text
 					else
 						curr.text.append(std::string({'$', *it}));
 				}
+
 				// if not marker character, it's normal text
 				else
 					curr.text.push_back(*it);
