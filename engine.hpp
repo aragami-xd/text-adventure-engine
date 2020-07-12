@@ -231,7 +231,7 @@ namespace textengine
 		 * get a decision with a specific id 
 		 * @exception cannot find decision with id
 		 */
-		Decision decision(const std::string &_id)
+		Decision &decision(const std::string &_id)
 		{
 			auto it = decisions_.find(_id);
 			if (it == decisions_.end())
@@ -289,7 +289,7 @@ namespace textengine
 		 * get a dialog with a specific id 
 		 * @exception cannot find dialog with id
 		 */
-		Dialog dialog(const std::string &_id)
+		Dialog &dialog(const std::string &_id)
 		{
 			auto it = dialogs_.find(_id);
 			if (it == dialogs_.end())
@@ -301,6 +301,16 @@ namespace textengine
 		 * increment score, use negative value to decrement
 		 */
 		inline void incrementScore(int _value) { score_ += _value; }
+
+		/**
+		 * set score to a specific value
+		 */
+		inline void score(int _value) { score_ = _value; }
+
+		/**
+		 * get score
+		 */
+		inline int score() { return score_; }
 	};
 
 	/**
@@ -309,39 +319,90 @@ namespace textengine
 	class Parser
 	{
 	private:
-		static Dialog parseDialog(Tree &tree, std::string &line, std::fstream &file)
+		static Tree currTree;
+		static Dialog currDialog;
+		static Decision currDecision;
+		static std::string currText;
+
+		static std::string parseMarker(const std::string &line, std::string::const_iterator &it)
 		{
-		}
-
-		static Dialog parseDecision(Tree &tree, std::string &line, std::fstream &file)
-		{
-		}
-
-	public:
-		static Tree create(std::fstream &_file)
-		{
-			std::string line;
-
-			getline(_file, line); // parse the first line, contain the link to the first dialog
-			Tree tree(line);
-
-			// parse the entire file, or until an error is found
-			while (getline(_file, line))
+			// parse the marker
+			std::string marker;
+			while (it != line.end() && *it != ']')
 			{
-				// parse a node
-				if (line[0] == '-' && line[1] == ' ')
-					parseDialog(tree, line, _file);
-
-				// parse a choice
-				else if (line[0] == '+' && line[1] == ' ')
-					parseDecision(tree, line, _file);
-
-				// else, return false
-				else
-					console::log(1, "unknown parsing error");
+				marker.push_back(*it);
+				it++;
 			}
 
-			return tree;
+			// trim whitespaces after a marker
+			while (it != line.end() && *it != ' ')
+				it++;
+			return marker;
+		}
+
+		static void parseLine(const std::string &line, std::string::const_iterator &it)
+		{
+			std::string id, treeLink, dialogLink;
+			bool hasLink = false;
+			while (it != line.end())
+			{
+				// if marker character `$` is found
+				if (*it == '$')
+				{
+					it++;
+
+					// `$[` creates id marker
+					if (*it == '[')
+						id = parseMarker(line, it);
+
+					// if no link is parsed, try to parse tree and dialog marker
+					// `$T[` creates tree marker and `$D[` creates dialog marker
+					else if (!hasLink && (*it == 'T' || *it == 'D'))
+					{
+						char linkType = *it;
+						it++;
+
+						// if tree marker is completed
+						if (*it == '[' && linkType == 'T')
+						{
+							treeLink = parseMarker(line, it);
+							hasLink = true;
+						}
+
+						// if dialog marker is completed
+						else if (*it == '[' && linkType == 'D')
+						{
+							dialogLink = parseMarker(line, it);
+							hasLink = true;
+						}
+
+						// if neither is completed (not a marker), restore the text
+						else
+							currText += std::string("$" + linkType + *it);
+					}
+
+					// if no marker is completed, restore the text
+					else
+						currText += std::string("$" + *it);
+
+					it++;
+				}
+
+				// if not marker character, it's normal text
+				else
+				{
+					currText.push_back(*it);
+					it++;
+				}
+			}
+		}
+
+		static void parseDialog();
+		static void parseDecision();
+
+	public:
+		static Tree create(std::fstream &file)
+		{
 		}
 	};
 
@@ -350,8 +411,17 @@ namespace textengine
 	private:
 		std::map<std::string, Tree> trees_;
 
+		struct EngineConfig
+		{
+			std::string outputIndent = "  ";
+			int logLevel = 1;
+
+			bool displayDisabledDialogs = true;
+		};
+		const EngineConfig config_;
+
 	public:
-		Engine()
+		Engine(const EngineConfig &_config)
 		{
 		}
 
