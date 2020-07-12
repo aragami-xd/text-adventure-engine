@@ -21,6 +21,44 @@ namespace textengine
 	};
 
 	/**
+	 * @class config engine components: console, engine, parser...
+	 */
+	struct configure
+	{
+		/** 
+		 * console config
+		 */
+
+		// indentation for subsequent statements in console::out() function
+		// default = 2 spaces, use "" for no indent
+		std::string output_indent = "  ";
+
+		// set console log level
+		// 0 - log nothing
+		// 1 - errors only (default)
+		// 2 - errors and warnings
+		// 3 - log everything
+		int log_level = 1;
+
+		/** 
+		 * console config
+		 */
+
+		// control whether to trim the whitespaces after a marker
+		// true - all whitespaces after a marker up until a text will be trimmed (default)
+		bool trim_whitespaces_behind_markers = true;
+
+		/** 
+		 * console config
+		 */
+
+		// control whether disabled decisions will be displayed or not
+		// true - the decision is shown but cannot be chosen (default)
+		// false - the decision will not be shown and cannot be chosen
+		bool display_disabled_decisions = true;
+	};
+
+	/**
 	 * handling console i/o
 	 */
 	class console
@@ -61,7 +99,10 @@ namespace textengine
 
 		/**
 		 * log to console
-		 * @param level level of logging. level 1 (error) will throw an exception with message as the arg param
+		 * @param level level of logging:
+		 * @param 1 errors, will throw exception with the arg as message
+		 * @param 2 warnings
+		 * @param 3 info
 		 * @param arg first argument to be displayed, not indented
 		 * @param ... subsequent arguments, indented with console class indent value
 		 */
@@ -318,83 +359,102 @@ namespace textengine
 	 */
 	class Parser
 	{
-	private:
+	public:
 		static Tree currTree;
-		static Dialog currDialog;
-		static Decision currDecision;
-		static std::string currText;
 
-		static std::string parseMarker(const std::string &line, std::string::const_iterator &it)
+		struct Token
+		{
+			std::string text = "";
+
+			std::string id = "";
+			std::string link = "";
+			bool isTreeLink = false;
+
+			bool hasId = false;
+			bool hasLink = false;
+		};
+
+		/**
+		 * parse a marker (id, links...)
+		 * @param line current line to be parsed
+		 * @param it reference to line iterator at the point the function is called, return the reference at the closing bracket `]`
+		 * @return the parsed marker value
+		 */
+		static std::string parseMarkerValue(const configure &config, const std::string &line, std::string::const_iterator &it)
 		{
 			// parse the marker
 			std::string marker;
-			while (it != line.end() && *it != ']')
-			{
+			while (++it != line.end() && *it != ']')
 				marker.push_back(*it);
-				it++;
-			}
 
-			// trim whitespaces after a marker
-			while (it != line.end() && *it != ' ')
-				it++;
+			// trim whitespaces after a marker (if option is enabled)
+			if (config.trim_whitespaces_behind_markers)
+				while (++it != line.end() && *it == ' ')
+					;
+
 			return marker;
 		}
 
-		static void parseLine(const std::string &line, std::string::const_iterator &it)
+		/**
+		 * parse a line
+		 * can parse id and link (either type) anywhere in the line
+		 */
+		static Token parseLine(const configure &config, Token &curr, const std::string &line, std::string::const_iterator &it)
 		{
-			std::string id, treeLink, dialogLink;
-			bool hasLink = false;
 			while (it != line.end())
 			{
 				// if marker character `$` is found
 				if (*it == '$')
 				{
 					it++;
-
 					// `$[` creates id marker
 					if (*it == '[')
-						id = parseMarker(line, it);
+					{
+						std::string id = parseMarkerValue(config, line, it);
+						if ((curr.hasId = !curr.hasId)) // basically check if hasId is false by flipping it and see if it's true
+							curr.id = id;
+						else
+							console::log(1, "found another id within token: " + id);
+					}
 
 					// if no link is parsed, try to parse tree and dialog marker
-					// `$T[` creates tree marker and `$D[` creates dialog marker
-					else if (!hasLink && (*it == 'T' || *it == 'D'))
+					// `$T[` or `$t[` creates tree marker and `$D[` or `$d[` creates dialog marker
+					else if (*it == 'T' || *it == 't' || *it == 'D' || *it == 'd')
 					{
 						char linkType = *it;
 						it++;
 
-						// if tree marker is completed
-						if (*it == '[' && linkType == 'T')
+						// if marker is completed
+						if (*it == '[')
 						{
-							treeLink = parseMarker(line, it);
-							hasLink = true;
-						}
+							std::string link = parseMarkerValue(config, line, it);
+							if ((curr.hasLink = !curr.hasLink)) // like hasId above
+								curr.link = link;
+							else
+								console::log(1, "found another link within token: " + link);
 
-						// if dialog marker is completed
-						else if (*it == '[' && linkType == 'D')
-						{
-							dialogLink = parseMarker(line, it);
-							hasLink = true;
+							if (linkType == 'T' || linkType == 't')
+								curr.isTreeLink = true;
+							else
+								curr.isTreeLink = false;
 						}
 
 						// if neither is completed (not a marker), restore the text
 						else
-							currText += std::string("$" + linkType + *it);
+							curr.text.append(std::string({'$', linkType, *it}));
 					}
 
 					// if no marker is completed, restore the text
 					else
-						currText += std::string("$" + *it);
-
-					it++;
+						curr.text.append(std::string({'$', *it}));
 				}
-
 				// if not marker character, it's normal text
 				else
-				{
-					currText.push_back(*it);
-					it++;
-				}
+					curr.text.push_back(*it);
+
+				it++;
 			}
+			return curr;
 		}
 
 		static void parseDialog();
@@ -411,17 +471,8 @@ namespace textengine
 	private:
 		std::map<std::string, Tree> trees_;
 
-		struct EngineConfig
-		{
-			std::string outputIndent = "  ";
-			int logLevel = 1;
-
-			bool displayDisabledDialogs = true;
-		};
-		const EngineConfig config_;
-
 	public:
-		Engine(const EngineConfig &_config)
+		Engine(const configure &_config)
 		{
 		}
 
