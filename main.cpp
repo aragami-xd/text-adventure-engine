@@ -1,13 +1,24 @@
 #include "engine.hpp"
 
-int main()
+int main(int args, char *argv[])
 {
-	std::string sentence1 = "parse $[this]     sentence   with tree link $T[tree] and \n     incomplete link $ddd and $a[] and escaped dialog link $$d[dialog]";
-	std::string::const_iterator it = sentence1.begin();
-	
-	textengine::configure config;
-	textengine::Parser::Token token;
-	token = textengine::Parser::parseLine(config, token, sentence1, it);
+	textengine::Engine *engine = new textengine::Engine();
+	for (int i = 1; i < args; i++)
+		engine->parseScriptFile(std::string(argv[i]));
+	auto trees = engine->tree();
+	delete engine;
 
-	std::cout << token.id << "\n" << token.link << "\n" << token.text << std::endl;
+	for (auto t : trees)
+	{
+		textengine::console::out("tree");
+		auto dialogs = t.second->allDialogs();
+		for (auto d : dialogs)
+		{
+			textengine::console::out(d.second->message());
+			auto decisions = d.second->allDecisions();
+			for (auto de : decisions)
+				textengine::console::out(de.second->message());
+		}
+		textengine::console::out("\n\n\n");
+	}
 }

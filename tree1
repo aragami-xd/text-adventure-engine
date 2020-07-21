@@ -1,0 +1,9 @@
+- $[da1] dialog 1, with no link
++ $[da1 dc1] decision 1, with link to dialog 2 $d[da2]
++ $[da1 dc2] decision 2, with link to dialog 3 $d[da3]
+this one is still decision 2
++ $[da1 dc3] decision 3, with link to tree 2 $T[tree2]
++ $[da1 dc4] decision 4, with no link. therefore it uses dialog 1's link, which doesn't exist either, so it'll jump to dialog 2
+
+- $[da2] 'da1 dc1' points to here, since this one has no link either, it'll jump to da3 below
+- $[da3] pointed by 'da1 dc3' and 'da2' and link to tree 3 $t[tree3]

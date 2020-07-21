@@ -2,12 +2,13 @@ a single header engine to build text-based decision adventure games
 
 - [build and run](#build-and-run)
 - [usage](#usage)
+- [tl;dr version](#tldr-version)
 - [storyline syntax](#storyline-syntax)
-	- [tree](#tree)
-	- [dialogs and decisions](#dialogs-and-decisions)
-	- [id](#id)
-	- [links](#links)
-	- [game tree example](#game-tree-example)
+  - [tree](#tree)
+  - [dialogs and decisions](#dialogs-and-decisions)
+  - [id](#id)
+  - [links](#links)
+  - [game tree example](#game-tree-example)
 - [more details to come](#more-details-to-come)
 
 ### build and run
@@ -21,12 +22,24 @@ include `engine.hpp` and compile with the project with c++17 and above (`std=c++
 
 <br>
 
+### tl;dr version
+- trees contain dialogs, dialogs contain decisions
+- dialogs start with `-`, decisions start with `+`, **MUST BE** the first character of the line, ortherwise it'll be normal text
+- tree `id` will be the file name, start with the first dialog parsed in the file
+- id: `$[id]`, tree links: `$T[]` or `$t[]`, dialog links: `$D[]` or `$d[]`. links jump to the id. can be put anywhere in the line
+- if a dialog doesn't have a tree, it can only be reached by the dialog or decision above if they don't have any link
+- if a decision doesn't have an id, the game will give it one
+- if a decision doesn't have a link, or there is no decision at all, use dialog's link
+- game ends when there is no further jumps can be made
+  
+<br>
+
 ### storyline syntax
 #### tree
 - a game tree, recommend create 1 tree per level and link with each other
 - each file creates 1 tree
-- the first line must be the [id](#id) of the tree, and everything after the id will be ignored
-- the first [dialog](#dialogs-and-decisions) after the id will be the root of the tree. anything between the id and first dialog will be ignored
+- the file name of the text file will be the [id](#id) of the tree
+- the first dialog will be the "entry" point of the tree, whose message will be first displayed
 
 <br>
 
@@ -65,17 +78,15 @@ include `engine.hpp` and compile with the project with c++17 and above (`std=c++
 - each dialog / decision can have 1 id only. subsequent ids will **cause exception**
 - if no id is provided:
   - **tree**: program will throw an exception
-  - **dialogs**: 
-    - *WARNING*: this dialog will only reachable if there is a dialog above with no links (or its chosen decision has no link), in which case it'll jump to this dialog without any id needed
-    - *WARNING 2*: first dialog doesn't need an id. the tree points to it automatically
+  - **dialogs**: *WARNING*: this dialog will only reachable if there is a dialog above with no links (or its chosen decision has no link), in which case it'll jump to this dialog without any id needed
   - **decisions**: the engine will provide a unique id for it
 - to escape the phrase, use 2 `$` characters: `$$[]` (can't use `\` because c doesn't like it). end result will be a single `$` character with the full marker
 
 **examples**:
 ```
-$[the first line of the file is the tree id]
+$[the first line of the file is the tree id] $D[dialog_id]
 
-- this is a dialog id: $[dialog_id], and put text here
+- this is a dialog id: $[dialog_id], and the tree links to this dialog as the first dialog
 + same with $[decisions]
 + the $[second] id will be $[ignored]: 'ignored' will be ignored and count as normal text of the sentence
 
@@ -95,10 +106,10 @@ $[the first line of the file is the tree id]
 - if there **is no** link: 
   - **dialogs**: jump to the next dialog (that dialog don't need an id, although it can still have one). if there is no dialog after that, game ends
   - **decisions**: use dialog link, or the line above if dialog has no link either
-
+  
 *note*: the engine can be configured to trim all whitespace behind the markers up until the next piece of text
 ```
-`text $[marker]     text` = `text text`
+`text $[marker]     text` = text text
 ```
 
 **examples**:
@@ -112,9 +123,8 @@ $[the first line of the file is the tree id]
 <br>
 
 #### game tree example
-tree 1 file:
+tree 1 file: `tree1`
 ```
-$[tree1]
 - $[da1] dialog 1, with no link
 + $[da1 dc1] decision 1, with link to dialog 2 $d[da2]
 + $[da1 dc2] decision 2, with link to dialog 3 $d[da3]
@@ -126,9 +136,8 @@ this one is still decision 2
 - $[da3] pointed by 'da1 dc3' and 'da2'
 ```
 
-tree 2 file:
+tree 2 file: `tree2`
 ```
-$[tree2]
 - $[da1] 'da1 dc3' points to this tree and this dialog here
 ```
 

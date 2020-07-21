@@ -1,7 +1,6 @@
 #pragma once
 #include <string>
 #include <map>
-#include <vector>
 #include <iostream>
 #include <fstream>
 
@@ -64,23 +63,23 @@ namespace textengine
 	class console
 	{
 	private:
-		static std::string indent_; // indentation string, default = 2 spaces
-		static int level_;			// log level, default = 1
+		static std::string indent_; // indentation string
+		static int level_;			// log level
 
 	public:
 		/**
-		 * set console output indentation, program default = 2 spaces
+		 * set console output indentation
 		 */
 		inline static void indent(const std::string &_indent) { indent_ = _indent; }
 
 		/**
 		 * set console log level
 		 * @param 0 log nothing
-		 * @param 1 errors only (program default level)
+		 * @param 1 errors only
 		 * @param 2 errors and warnings
 		 * @param 3 log everything
 		 */
-		inline static void logLevel(int _level) { level_ = _level; }
+		inline static void level(int _level) { level_ = _level; }
 
 		/**
 		 * output function, can print any ostream compatible data types
@@ -126,7 +125,7 @@ namespace textengine
 	private:
 		const std::string id_;
 		std::string message_;
-		std::string link_; // link to another dialog or tree
+		std::string link_; // link to another dialog or tree, the final character can be ('D', 'd', 'T', 't', corresponding to link type)
 		bool enabled_;	   // whether the decision can be chosen
 		int score_;		   // how much the decision worth
 
@@ -196,7 +195,7 @@ namespace textengine
 	class Dialog
 	{
 	private:
-		std::map<std::string, Decision> decisions_;
+		std::map<std::string, Decision *> decisions_;
 		const std::string id_;
 		std::string message_;
 		std::string link_; // link to another dialog or tree
@@ -241,16 +240,16 @@ namespace textengine
 		/**
 		 * get all decisions of the dialog
 		 */
-		inline std::map<std::string, Decision> allDecisions() { return decisions_; }
+		inline std::map<std::string, Decision *> allDecisions() { return decisions_; }
 
 		/** 
 		 * insert a decision
 		 * @exception duplicate decision id
 		 */
-		void insertDecision(const Decision &_decision)
+		void insertDecision(Decision *_decision)
 		{
-			if (decisions_.insert({_decision.id(), _decision}).second == false)
-				console::log(1, "duplicate decision id: " + _decision.id());
+			if (decisions_.insert({_decision->id(), _decision}).second == false)
+				console::log(1, "duplicate decision id: " + _decision->id());
 		}
 
 		/** 
@@ -264,7 +263,7 @@ namespace textengine
 		 */
 		void insertDecision(const std::string &_id, const std::string &_message, const std::string &_link = "", bool _enabled = true, int _score = 0)
 		{
-			if (decisions_.insert({_id, Decision(_id, _message, _link, _enabled, _score)}).second == false)
+			if (decisions_.insert({_id, new Decision(_id, _message, _link, _enabled, _score)}).second == false)
 				console::log(1, "duplicate decision id: " + _id);
 		}
 
@@ -272,12 +271,21 @@ namespace textengine
 		 * get a decision with a specific id 
 		 * @exception cannot find decision with id
 		 */
-		Decision &decision(const std::string &_id)
+		Decision *decision(const std::string &_id)
 		{
 			auto it = decisions_.find(_id);
 			if (it == decisions_.end())
 				console::log(1, "cannot find decision with id: " + _id);
 			return it->second;
+		}
+
+		/**
+		 * destructor, delete all decisions
+		 */
+		~Dialog()
+		{
+			for (auto d : decisions_)
+				delete d.second;
 		}
 	};
 
@@ -287,10 +295,10 @@ namespace textengine
 	class Tree
 	{
 	private:
-		std::map<std::string, Dialog> dialogs_;
-		const std::string root_; // root node of the tree
-		const std::string id_;
-		int score_;
+		std::map<std::string, Dialog *> dialogs_; // all dialogs
+		const std::string id_;					  // id of the tree
+		const std::string root_;				  // first dialog of the tree
+		int score_;								  // current score of the tree
 
 	public:
 		/**
@@ -298,8 +306,8 @@ namespace textengine
 		 * @param _link link to the first dialog in the tree
 		 * @param _initial_score the starting score of the tree
 		 */
-		Tree(const std::string &_root, int _initial_score = 0)
-			: root_(_root), score_(_initial_score)
+		Tree(const std::string &_id, const std::string &_root, int _initial_score = 0)
+			: id_(_id), root_(_root), score_(_initial_score)
 		{
 		}
 
@@ -307,10 +315,10 @@ namespace textengine
 		 * insert dialog into the tree
 		 * @exception duplicate dialog id
 		 */
-		void insertDialog(const Dialog &_dialog)
+		void insertDialog(Dialog *_dialog)
 		{
-			if (dialogs_.insert({_dialog.id(), _dialog}).second == false)
-				console::log(1, "duplicate dialog id: " + _dialog.id());
+			if (dialogs_.insert({_dialog->id(), _dialog}).second == false)
+				console::log(1, "duplicate dialog id: " + _dialog->id());
 		}
 
 		/** 
@@ -322,7 +330,7 @@ namespace textengine
 		 */
 		void insertDialog(const std::string &_id, const std::string &_message, const std::string &_link = "")
 		{
-			if (dialogs_.insert({_id, Dialog(_id, _message, _link)}).second == false)
+			if (dialogs_.insert({_id, new Dialog(_id, _message, _link)}).second == false)
 				console::log(1, "duplicate dialog id: " + _id);
 		}
 
@@ -330,12 +338,20 @@ namespace textengine
 		 * get a dialog with a specific id 
 		 * @exception cannot find dialog with id
 		 */
-		Dialog &dialog(const std::string &_id)
+		Dialog *dialog(const std::string &_id)
 		{
 			auto it = dialogs_.find(_id);
 			if (it == dialogs_.end())
 				console::log(1, "cannot find dialog with id: " + _id);
 			return it->second;
+		}
+
+		/**
+		 * get all dialogs
+		 */
+		inline std::map<std::string, Dialog *> allDialogs()
+		{
+			return dialogs_;
 		}
 
 		/**
@@ -352,6 +368,15 @@ namespace textengine
 		 * get score
 		 */
 		inline int score() { return score_; }
+
+		/**
+		 * destructor, delete all dialogs
+		 */
+		~Tree()
+		{
+			for (auto d : dialogs_)
+				delete d.second;
+		}
 	};
 
 	/**
@@ -359,8 +384,8 @@ namespace textengine
 	 */
 	class Parser
 	{
-	public:
-		static Tree currTree;
+	private:
+		static int uniqueInt;
 
 		/**
 		 * @class parsing token
@@ -392,8 +417,8 @@ namespace textengine
 
 			// trim whitespaces after a marker (if option is enabled)
 			if (config.trim_whitespaces_behind_markers)
-				while (++it != line.end() && *it == ' ')
-					;
+				while (it != line.end() && *(it + 1) == ' ')
+					it++;
 
 			return marker;
 		}
@@ -401,10 +426,14 @@ namespace textengine
 		/**
 		 * parse a line
 		 * can parse id and link (either type) anywhere in the line
+		 * @param config program configuration
+		 * @param curr current token being parsed
+		 * @param line the full text line
+		 * @param it iterator of the line
 		 */
-		static Token parseLine(const configure &config, Token &curr, const std::string &line, std::string::const_iterator &it)
+		static Token parseLine(const configure &config, Token &curr, int line_num, const std::string &line, std::string::const_iterator &it)
 		{
-			while (it != line.end())
+			while (++it != line.end())
 			{
 				// if marker character `$` is found
 				if (*it == '$')
@@ -417,7 +446,7 @@ namespace textengine
 						if ((curr.hasId = !curr.hasId)) // basically check if hasId is false by flipping it and see if it's true
 							curr.id = id;
 						else
-							console::log(1, "found another id within token: " + id);
+							console::log(1, "line [" + std::to_string(line_num) + "]: found another id within token: " + id);
 					}
 
 					// if no link is parsed, try to parse tree and dialog marker
@@ -430,11 +459,12 @@ namespace textengine
 						// if marker is completed
 						if (*it == '[')
 						{
-							std::string link = parseMarkerValue(config, line, it);
+							std::string link = parseMarkerValue(config, line, it) + linkType;
+
 							if ((curr.hasLink = !curr.hasLink)) // like hasId above
 								curr.link = link;
 							else
-								console::log(1, "found another link within token: " + link);
+								console::log(1, "line [" + std::to_string(line_num) + "]: found another link within token: " + link);
 
 							if (linkType == 'T' || linkType == 't')
 								curr.isTreeLink = true;
@@ -459,45 +489,113 @@ namespace textengine
 				// if not marker character, it's normal text
 				else
 					curr.text.push_back(*it);
-
-				it++;
 			}
 			return curr;
 		}
 
-		static void parseDialog();
-		static void parseDecision();
+		/**
+		 * post processing the dialog
+		 */
+		static Tree *processDialog(const std::string &fname, Token &curr, Tree *tree, Dialog *dialog)
+		{
+			if (!curr.hasLink)
+			{
+				curr.link = std::to_string(++uniqueInt) + 'd';
+				curr.isTreeLink = false;
+				console::log(2, "no link found, create link to dialog: " + uniqueInt);
+			}
+			dialog = new Dialog(curr.id, curr.text, curr.link);
+			std::cout << "new tree" << std::endl;
+
+			// create the tree if it's not yet created (creating the tree requiring the link to the first dialog)
+			if (tree == nullptr)
+				tree = new Tree(fname, dialog->id(), 0);
+
+			tree->insertDialog(dialog);
+			return tree;
+		}
 
 	public:
-		static Tree create(std::fstream &file)
+		static Tree *create(const configure &config, const std::string &fname, std::fstream &file)
 		{
+			Tree *tree = nullptr;	  // current tree, will be created once the first dialog is successfully parsed
+			Dialog *dialog = nullptr; // current dialog
+
+			Token curr;			// current token
+			int line_num = 0;	// line num, for debugging
+			std::string line;	// current line to be parsed
+			std::string concat; // concat all lines belong to the same token
+
+			// parse till eof
+			while (getline(file, line))
+			{
+				line_num++;
+				if (line.empty()) // ignore empty lines
+					continue;
+				concat.append(line);
+
+				// peek next line and see if it's a new token or not (or eof)
+				// if true, start parsing the token
+				if (!file.good() || (char)file.peek() == '-' || (char)file.peek() == '+')
+				{
+					std::string::const_iterator it = concat.begin() + 1; // ignore the first marking character
+					while (it != concat.end() && *(it + 1) == ' ') 		 // trim whitespace
+						it++;
+
+					curr = parseLine(config, curr, line_num, concat, it);
+
+					// if current token is a dialog
+					if (concat.front() == '-')
+						tree = processDialog(fname, curr, tree, dialog);
+
+					// if currentt token is a decision, and there is a dialog to attach to
+					// therefore, all decisions parsed before the first dialog is parsed in the file will be discarded
+					else if (concat.front() == '+')
+					{
+						Decision *decision = new Decision(curr.id, curr.text, curr.link, true, 0);
+						if (dialog != nullptr)
+							dialog->insertDecision(decision);
+					}
+					else
+						console::log(2, "found a decision cannot be attached to any dialog at line " + line_num);
+				}
+			}
+			return tree;
 		}
 	};
 
+	/**
+	 * @class runtime engine
+	 */
 	class Engine
 	{
 	private:
-		std::map<std::string, Tree> trees_;
+		std::map<std::string, Tree *> trees;
+		configure config;
 
 	public:
-		Engine(const configure &_config)
+		Engine() = default;
+
+		void parseScriptFile(const std::string &fname)
 		{
+			std::fstream file(fname);
+			if (!file.is_open())
+				console::log(1, "cannot open file: " + fname);
+			else
+				trees.insert({fname, Parser::create(config, fname, file)});
 		}
 
-		void parsePlotScripts(const std::vector<std::string> &_files)
+		inline std::map<std::string, Tree *> tree() { return trees; }
+
+		~Engine()
 		{
-			for (unsigned int i = 0; i < _files.size(); i++)
-			{
-				std::fstream file(_files[i]);
-				if (!file.is_open())
-					console::log(1, "cannot open file: " + _files[i]);
-				else
-					trees_.insert({_files[i], Parser::create(file)});
-			}
+			for (auto t : trees)
+				delete t.second;
 		}
 	};
 } // namespace textengine
 
 // static initialization
 std::string textengine::console::indent_ = "  ";
-int textengine::console::level_ = 1;
+int textengine::console::level_ = 4;
+int textengine::Parser::uniqueInt = 3010299; // log 2, to create an unique id / link to dialog / decision
