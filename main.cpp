@@ -5,14 +5,14 @@ int main(int args, char *argv[])
 	textengine::Engine *engine = new textengine::Engine();
 	for (int i = 1; i < args; i++)
 		engine->parseScriptFile(std::string(argv[i]));
-	auto trees = engine->tree();
+	auto const &trees = engine->tree();
 	delete engine;
 
-	for (auto t : trees)
+	for (auto const &t : trees)
 	{
 		textengine::console::out("tree");
 		auto dialogs = t.second->allDialogs();
-		for (auto d : dialogs)
+		for (auto const &d : dialogs)
 		{
 			textengine::console::out(d.second->message());
 			auto decisions = d.second->allDecisions();
